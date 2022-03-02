@@ -541,7 +541,7 @@ public class VpnTunnelService extends VpnService {
       if (serverName == null || serverName.equals("")) {
         serverName = config.proxy.host;
       }
-      return "Anonymous Server";
+      return serverName;
     } catch (Exception e) {
       LOG.severe("Failed to get name property from server config.");
     }
