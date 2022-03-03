@@ -24,6 +24,7 @@ extern const DDLogLevel ddLogLevel;
 
 // This must be kept in sync with:
 //  - cordova-plugin-outline/apple/src/OutlineVpn.swift#ErrorCode
+//  - cordova-plugin-outline/outlinePlugin.js#ERROR_CODE
 //  - www/model/errors.ts
 typedef NS_ENUM(NSInteger, ErrorCode) {
   noError = 0,
