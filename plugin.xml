@@ -54,7 +54,7 @@
       </receiver>
     </config-file>
 
-    <source-file src="android/aidl" target-dir="app/src/main" />
+    <source-file src="android/aidl/org/outline" target-dir="app/src/main/aidl/org" />
     <source-file
       src="android/java/org/outline/OutlinePlugin.java"
       target-dir="app/src/main/java/org/outline" />
