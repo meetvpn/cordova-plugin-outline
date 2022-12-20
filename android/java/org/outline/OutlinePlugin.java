@@ -36,8 +36,6 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.outline.log.OutlineLogger;
-import org.outline.log.SentryErrorReporter;
 import org.outline.vpn.VpnServiceStarter;
 import org.outline.vpn.VpnTunnelService;
 
@@ -51,8 +49,6 @@ public class OutlinePlugin extends CordovaPlugin {
     ON_STATUS_CHANGE("onStatusChange"),
     IS_RUNNING("isRunning"),
     IS_REACHABLE("isServerReachable"),
-    INIT_ERROR_REPORTING("initializeErrorReporting"),
-    REPORT_EVENTS("reportEvents"),
     QUIT("quitApplication");
 
     private final static Map<String, Action> actions = new HashMap<>();
@@ -78,7 +74,7 @@ public class OutlinePlugin extends CordovaPlugin {
     }
   }
 
-  // Plugin error codes. Keep in sync with outlinePlugin.js.
+  // Plugin error codes. Keep in sync with www/model/errors.ts.
   public enum ErrorCode {
     NO_ERROR(0),
     UNEXPECTED(1),
@@ -118,7 +114,6 @@ public class OutlinePlugin extends CordovaPlugin {
     TUNNEL_CONFIG("tunnelConfig"),
     ACTION("action"),
     PAYLOAD("payload"),
-    ERROR_REPORTING_API_KEY("errorReportingApiKey");
 
     public final String value;
     MessageData(final String value) {
@@ -144,7 +139,6 @@ public class OutlinePlugin extends CordovaPlugin {
   // We catch any exceptions, which should generally be transient and recoverable, and report them
   // to the WebView.
   private IVpnTunnelService vpnTunnelService;
-  private String errorReportingApiKey;
   private StartVpnRequest startVpnRequest;
   // Tunnel status change callback by tunnel ID.
   private final Map<String, CallbackContext> tunnelStatusListeners = new ConcurrentHashMap<>();
@@ -165,14 +159,12 @@ public class OutlinePlugin extends CordovaPlugin {
       Intent rebind = new Intent(context, VpnTunnelService.class);
       rebind.putExtra(VpnServiceStarter.AUTOSTART_EXTRA, true);
       // Send the error reporting API key so the potential crash is reported.
-      rebind.putExtra(MessageData.ERROR_REPORTING_API_KEY.value, errorReportingApiKey);
       context.bindService(rebind, vpnServiceConnection, Context.BIND_AUTO_CREATE);
     }
   };
 
   @Override
   protected void pluginInitialize() {
-    OutlineLogger.registerLogHandler(SentryErrorReporter.BREADCRUMB_LOG_HANDLER);
     Context context = getBaseContext();
     IntentFilter broadcastFilter = new IntentFilter();
     broadcastFilter.addAction(Action.ON_STATUS_CHANGE.value);
@@ -253,17 +245,7 @@ public class OutlinePlugin extends CordovaPlugin {
           boolean isReachable =
               this.vpnTunnelService.isServerReachable(args.getString(0), args.getInt(1));
           callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, isReachable));
-        } else if (Action.INIT_ERROR_REPORTING.is(action)) {
-          errorReportingApiKey = args.getString(0);
-          // Treat failures to initialize error reporting as unexpected by propagating exceptions.
-          SentryErrorReporter.init(getBaseContext(), errorReportingApiKey);
-          vpnTunnelService.initErrorReporting(errorReportingApiKey);
-          callback.success();
-        } else if (Action.REPORT_EVENTS.is(action)) {
-          final String uuid = args.getString(0);
-          SentryErrorReporter.send(uuid);
-          callback.success();
-        } else {
+        else {
           throw new IllegalArgumentException(
               String.format(Locale.ROOT, "Unexpected action %s", action));
         }

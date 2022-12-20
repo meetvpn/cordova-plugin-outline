@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-        id="cordova-plugin-outline" version="0.0.1">
+        id="cordova-plugin-outline" version="0.0.2">
   <name>Outline Cordova Plugin</name>
   <description>Native plugin for the Outline app</description>
   <license>Apache 2.0</license>
@@ -49,21 +49,14 @@
             <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
           </intent-filter>
       </receiver>
-
-      <meta-data android:name="io.sentry.auto-init" android:value="false" />
     </config-file>
 
-    <hook type="before_plugin_install" src="android/scripts/copy_third_party.js" />
-
-    <source-file src="android/aidl/org/outline" target-dir="app/src/main/aidl/org" />
+    <source-file src="android/aidl" target-dir="app/src/main" />
     <source-file
       src="android/java/org/outline/OutlinePlugin.java"
       target-dir="app/src/main/java/org/outline" />
     <source-file
       src="android/java/org/outline/vpn"
-      target-dir="app/src/main/java/org/outline" />
-    <source-file
-      src="android/java/org/outline/log"
       target-dir="app/src/main/java/org/outline" />
     <source-file
       src="android/libs/tun2socks.aar"
@@ -90,19 +83,15 @@
       </feature>
     </config-file>
 
-    <hook type="before_plugin_install" src="apple/scripts/copy_third_party_frameworks_ios.js" />
-
     <source-file src="apple/src/OutlinePlugin.swift" />
     <source-file src="apple/src/OutlineConnectivity.swift" />
-    <source-file src="apple/src/OutlineSentryLogger.swift" />
     <source-file src="apple/src/OutlineTunnel.swift" />
     <source-file src="apple/src/OutlineVpn.swift" />
     <resource-file src="apple/vpn" />
 
-    <framework src="apple/lib/ios/Tun2socks.framework" custom="true" />
-    <framework src="apple/lib/ios/Sentry.framework" custom="true" />
-    <framework src="apple/lib/ios/CocoaLumberjack.framework" custom="true" />
-    <framework src="apple/lib/ios/CocoaLumberjackSwift.framework" custom="true" />
+    <framework src="apple/lib/ios/Tun2socks.xcframework" custom="true" />
+    <framework src="apple/lib/ios/CocoaLumberjack.xcframework" custom="true" />
+    <framework src="apple/lib/ios/CocoaLumberjackSwift.xcframework" custom="true" />
   </platform>
 
    <!-- macOS -->
@@ -114,19 +103,15 @@
       </feature>
     </config-file>
 
-    <hook type="before_plugin_install" src="apple/scripts/copy_third_party_frameworks_macos.js" />
-
     <source-file src="apple/src/OutlinePlugin.swift" />
     <source-file src="apple/src/OutlineConnectivity.swift" />
-    <source-file src="apple/src/OutlineSentryLogger.swift" />
     <source-file src="apple/src/OutlineTunnel.swift" />
     <source-file src="apple/src/OutlineVpn.swift" />
     <resource-file src="apple/src/macos/Outline-Bridging-Header.h" />
     <resource-file src="apple/vpn" />
 
-    <framework src="apple/lib/macos/Tun2socks.framework" custom="true" />
-    <framework src="apple/lib/macos/Sentry.framework" custom="true" />
-    <framework src="apple/lib/macos/CocoaLumberjack.framework" custom="true" />
-    <framework src="apple/lib/macos/CocoaLumberjackSwift.framework" custom="true" />
+    <framework src="apple/lib/macos/Tun2socks.xcframework" custom="true" />
+    <framework src="apple/lib/macos/CocoaLumberjack.xcframework" custom="true" />
+    <framework src="apple/lib/macos/CocoaLumberjackSwift.xcframework" custom="true" />
   </platform>
 </plugin>

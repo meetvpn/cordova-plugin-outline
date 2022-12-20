@@ -19,20 +19,6 @@ const exec = require('cordova/exec');
 
 const PLUGIN_NAME = 'OutlinePlugin';
 
-const log = {
-  initialize: function(apiKey) {
-    return new Promise(function(resolve, reject) {
-      exec(resolve, reject, PLUGIN_NAME, 'initializeErrorReporting', [apiKey]);
-    });
-  },
-
-  send: function(uuid) {
-    return new Promise(function(resolve, reject) {
-      exec(resolve, reject, PLUGIN_NAME, 'reportEvents', [uuid]);
-    });
-  }
-};
-
 const net = {
   isServerReachable: function(hostname, port) {
     return new Promise(function(resolve, reject) {
@@ -125,7 +111,6 @@ Tunnel.prototype.onStatusChange = function(listener) {
 module.exports = {
   Tunnel: Tunnel,
   TunnelStatus: TunnelStatus,
-  log: log,
   net: net,
   quitApplication: quitApplication,
 };
