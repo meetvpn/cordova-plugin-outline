@@ -38,7 +38,6 @@ import org.json.JSONObject;
 import org.outline.IVpnTunnelService;
 import org.outline.OutlinePlugin;
 import org.outline.TunnelConfig;
-import org.outline.log.SentryErrorReporter;
 import org.outline.shadowsocks.ShadowsocksConfig;
 import shadowsocks.Shadowsocks;
 
@@ -80,11 +79,6 @@ public class VpnTunnelService extends VpnService {
     public boolean isServerReachable(String host, int port) {
       return VpnTunnelService.this.isServerReachable(host, port);
     }
-
-    @Override
-    public void initErrorReporting(String apiKey) {
-      VpnTunnelService.this.initErrorReporting(apiKey);
-    }
   };
 
   @Override
@@ -105,11 +99,7 @@ public class VpnTunnelService extends VpnService {
     if (intent.getBooleanExtra(VpnServiceStarter.AUTOSTART_EXTRA, false)) {
       startLastSuccessfulTunnel();
     }
-    String errorReportingApiKey =
-        intent.getStringExtra(OutlinePlugin.MessageData.ERROR_REPORTING_API_KEY.value);
-    if (errorReportingApiKey != null) {
-      initErrorReporting(errorReportingApiKey);
-    }
+
     return binder;
   }
 
@@ -167,11 +157,28 @@ public class VpnTunnelService extends VpnService {
     tunnelConfig.proxy.port = config.getInt("port");
     tunnelConfig.proxy.password = config.getString("password");
     tunnelConfig.proxy.method = config.getString("method");
+    // `name` and `prefix` are optional properties.
     try {
-      // `name` is an optional property; don't throw if it fails to parse.
       tunnelConfig.name = config.getString("name");
     } catch (JSONException e) {
       LOG.fine("Tunnel config missing name");
+    }
+    String prefix = null;
+    try {
+      prefix = config.getString("prefix");
+      LOG.fine("Activating experimental prefix support");
+    } catch (JSONException e) {
+      // pass
+    }
+    if (prefix != null) {
+      tunnelConfig.proxy.prefix = new byte[prefix.length()];
+      for (int i = 0; i < prefix.length(); i++) {
+        char c = prefix.charAt(i);
+        if ((c & 0xFF) != c) {
+          throw new JSONException(String.format("Prefix character '%c' is out of range", c));
+        }
+        tunnelConfig.proxy.prefix[i] = (byte)c;
+      }
     }
     return tunnelConfig;
   }
@@ -201,13 +208,27 @@ public class VpnTunnelService extends VpnService {
       }
     }
 
-    final ShadowsocksConfig proxyConfig = config.proxy;
+    final shadowsocks.Config configCopy = new shadowsocks.Config();
+    configCopy.setHost(config.proxy.host);
+    configCopy.setPort(config.proxy.port);
+    configCopy.setCipherName(config.proxy.method);
+    configCopy.setPassword(config.proxy.password);
+    configCopy.setPrefix(config.proxy.prefix);
+    final shadowsocks.Client client;
+    try {
+      client = new shadowsocks.Client(configCopy);
+    } catch (Exception e) {
+      LOG.log(Level.WARNING, "Invalid configuration", e);
+      tearDownActiveTunnel();
+      return OutlinePlugin.ErrorCode.ILLEGAL_SERVER_CONFIGURATION;
+    }
+
     OutlinePlugin.ErrorCode errorCode = OutlinePlugin.ErrorCode.NO_ERROR;
     if (!isAutoStart) {
       try {
         // Do not perform connectivity checks when connecting on startup. We should avoid failing
         // the connection due to a network error, as network may not be ready.
-        errorCode = checkServerConnectivity(proxyConfig);
+        errorCode = checkServerConnectivity(client);
         if (!(errorCode == OutlinePlugin.ErrorCode.NO_ERROR
                 || errorCode == OutlinePlugin.ErrorCode.UDP_RELAY_NOT_ENABLED)) {
           tearDownActiveTunnel();
@@ -233,8 +254,7 @@ public class VpnTunnelService extends VpnService {
     final boolean remoteUdpForwardingEnabled =
         isAutoStart ? tunnelStore.isUdpSupported() : errorCode == OutlinePlugin.ErrorCode.NO_ERROR;
     try {
-      vpnTunnel.connectTunnel(proxyConfig.host, proxyConfig.port, proxyConfig.password,
-          proxyConfig.method, remoteUdpForwardingEnabled);
+      vpnTunnel.connectTunnel(client, remoteUdpForwardingEnabled);
     } catch (Exception e) {
       LOG.log(Level.SEVERE, "Failed to connect the tunnel", e);
       tearDownActiveTunnel();
@@ -286,10 +306,9 @@ public class VpnTunnelService extends VpnService {
 
   // Shadowsocks
 
-  private OutlinePlugin.ErrorCode checkServerConnectivity(final ShadowsocksConfig config) {
+  private OutlinePlugin.ErrorCode checkServerConnectivity(final shadowsocks.Client client) {
     try {
-      long errorCode = shadowsocks.Shadowsocks.checkConnectivity(
-          config.host, config.port, config.password, config.method);
+      long errorCode = Shadowsocks.checkConnectivity(client);
       OutlinePlugin.ErrorCode result = OutlinePlugin.ErrorCode.values()[(int) errorCode];
       LOG.info(String.format(Locale.ROOT, "Go connectivity check result: %s", result.name()));
       return result;
@@ -429,6 +448,16 @@ public class VpnTunnelService extends VpnService {
       proxyConfig.put("port", config.proxy.port);
       proxyConfig.put("password", config.proxy.password);
       proxyConfig.put("method", config.proxy.method);
+
+      if (config.proxy.prefix != null) {
+        char[] chars = new char[config.proxy.prefix.length];
+        for (int i = 0; i < config.proxy.prefix.length; i++) {
+          // Unsigned bit width extension requires a mask in Java.
+          chars[i] = (char)(config.proxy.prefix[i] & 0xFF);
+        }
+        proxyConfig.put("prefix", new String(chars));
+      }
+
       tunnel.put(TUNNEL_ID_KEY, config.id).put(TUNNEL_CONFIG_KEY, proxyConfig);
       tunnelStore.save(tunnel);
     } catch (JSONException e) {
@@ -436,16 +465,6 @@ public class VpnTunnelService extends VpnService {
     }
     tunnelStore.setTunnelStatus(OutlinePlugin.TunnelStatus.CONNECTED);
     tunnelStore.setIsUdpSupported(isUdpSupported);
-  }
-
-  // Error reporting
-
-  private void initErrorReporting(final String apiKey) {
-    try {
-      SentryErrorReporter.init(this, apiKey);
-    } catch (Exception e) {
-      LOG.log(Level.SEVERE, "Failed to initialize Sentry", e);
-    }
   }
 
   // Foreground service & notifications
