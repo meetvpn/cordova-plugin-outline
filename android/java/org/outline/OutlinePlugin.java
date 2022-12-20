@@ -113,7 +113,7 @@ public class OutlinePlugin extends CordovaPlugin {
     TUNNEL_ID("tunnelId"),
     TUNNEL_CONFIG("tunnelConfig"),
     ACTION("action"),
-    PAYLOAD("payload"),
+    PAYLOAD("payload");
 
     public final String value;
     MessageData(final String value) {
@@ -245,7 +245,7 @@ public class OutlinePlugin extends CordovaPlugin {
           boolean isReachable =
               this.vpnTunnelService.isServerReachable(args.getString(0), args.getInt(1));
           callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, isReachable));
-        else {
+        } else {
           throw new IllegalArgumentException(
               String.format(Locale.ROOT, "Unexpected action %s", action));
         }
